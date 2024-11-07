@@ -1,0 +1,6 @@
+INFO:root:[+] Connecting to 127.0.0.1:8002
+INFO:root:[+] Connected.
+INFO:[+] Connecting to 127.0.0.1:8002
+INFO:[+] Connected.
+2024-11-07 11:33:24,644 [MainThread  ] [INFO ]  [+] Connecting to 127.0.0.1:8002
+2024-11-07 11:33:24,644 [MainThread  ] [INFO ]  [+] Connected.

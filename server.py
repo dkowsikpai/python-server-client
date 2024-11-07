@@ -1,67 +1,85 @@
+"""
+Server receiver of the file
+"""
+import argparse
+import logging
+import os
 import socket
+import sys
 import threading
+import tqdm
 
-#Variables for holding information about connections
-connections = []
-total_connections = 0
+logging.basicConfig(filename='logs/server.log', encoding='utf-8', level=logging.DEBUG, format='%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s')
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-#Client class, new instance created for each connected client
-#Each instance has the socket and address that is associated with items
-#Along with an assigned ID and a name chosen by the client
-class Client(threading.Thread):
-    def __init__(self, socket, address, id, name, signal):
-        threading.Thread.__init__(self)
-        self.socket = socket
-        self.address = address
-        self.id = id
-        self.name = name
-        self.signal = signal
-    
-    def __str__(self):
-        return str(self.id) + " " + str(self.address)
-    
-    #Attempt to get data from client
-    #If unable to, assume client has disconnected and remove him from server data
-    #If able to and we get data back, print it in the server and send it back to every
-    #client aside from the client that has sent it
-    #.decode is used to convert the byte data into a printable string
-    def run(self):
-        while self.signal:
-            try:
-                data = self.socket.recv(32)
-            except:
-                print("Client " + str(self.address) + " has disconnected")
-                self.signal = False
-                connections.remove(self)
+parser = argparse.ArgumentParser("Client Program")
+parser.add_argument("--host", type=str, default="127.0.0.1", help="Server address")
+parser.add_argument("--port", type=int, default=8000, help="Server port")
+
+args = parser.parse_args()
+
+# device's IP address
+SERVER_HOST = args.host
+SERVER_PORT = args.port
+# receive 4096 bytes each time
+BUFFER_SIZE = 4096
+SEPARATOR = "<SEPARATOR>"
+
+def handler(socket):
+    # accept connection if there is any
+    client_socket, address = socket.accept() 
+    # if below code is executed, that means the sender is connected
+    logging.info(f"[+] {address} is connected.")
+
+    # receive the file infos
+    # receive using client socket, not server socket
+    received = client_socket.recv(BUFFER_SIZE).decode()
+    filename, filesize = received.split(SEPARATOR)
+    # remove absolute path if there is
+    filename = os.path.basename(filename)
+    # convert to integer
+    filesize = int(filesize)
+    # start receiving the file from the socket
+    # and writing to the file stream
+    progress = tqdm.tqdm(range(filesize), f"Receiving {filename}", unit="B", unit_scale=True, unit_divisor=1024)
+    with open(f"server_{filename}", "wb") as f:
+        while True:
+            # read 1024 bytes from the socket (receive)
+            bytes_read = client_socket.recv(BUFFER_SIZE)
+            if not bytes_read:    
+                # nothing is received
+                # file transmitting is done
                 break
-            if data != "":
-                print("ID " + str(self.id) + ": " + str(data.decode("utf-8")))
-                for client in connections:
-                    if client.id != self.id:
-                        client.socket.sendall(data)
+            # write to the file the bytes we just received
+            f.write(bytes_read)
+            # update the progress bar
+            progress.update(len(bytes_read))
 
-#Wait for new connections
-def newConnections(socket):
-    while True:
-        sock, address = socket.accept()
-        global total_connections
-        connections.append(Client(sock, address, total_connections, "Name", True))
-        connections[len(connections) - 1].start()
-        print("New connection at ID " + str(connections[len(connections) - 1]))
-        total_connections += 1
+    # close the client socket
+    client_socket.close()
 
-def main():
-    #Get host and port
-    host = input("Host: ")
-    port = int(input("Port: "))
 
-    #Create new server socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((host, port))
-    sock.listen(5)
+if __name__ == "__main__":
 
-    #Create new thread to wait for connections
-    newConnectionsThread = threading.Thread(target = newConnections, args = (sock,))
-    newConnectionsThread.start()
-    
-main()
+    # Create threads
+    thread_connections = []
+
+    # create the server socket
+    # TCP socket
+    s = socket.socket()
+    # bind the socket to our local address
+    s.bind((SERVER_HOST, SERVER_PORT))
+    # enabling our server to accept connections
+    # 5 here is the number of unaccepted connections that
+    # the system will allow before refusing new connections
+    s.listen(5)
+    logging.info(f"[*] Listening as {SERVER_HOST}:{SERVER_PORT}")
+
+    # Handle new connections
+    thd = threading.Thread(target=handler, args=(s,))
+    thread_connections.append(thd)
+    thd.start()
+    # handler(s)
+
+    # close the server socket
+    s.close()

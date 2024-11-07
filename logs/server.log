@@ -1,0 +1,6 @@
+INFO:root:[*] Listening as 127.0.0.1:8002
+INFO:root:[+] ('127.0.0.1', 50804) is connected.
+INFO:[*] Listening as 127.0.0.1:8002
+INFO:[+] ('127.0.0.1', 46044) is connected.
+2024-11-07 11:33:22,071 [MainThread  ] [INFO ]  [*] Listening as 127.0.0.1:8002
+2024-11-07 11:33:24,648 [Thread-1 (ha] [INFO ]  [+] ('127.0.0.1', 55634) is connected.
